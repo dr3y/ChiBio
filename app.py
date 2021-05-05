@@ -1324,7 +1324,7 @@ def CharacteriseDevice2(M):
         
         
 
-def I2CCom(M,device,rw,hl,data1,data2,SMBUSFLAG):
+def I2CCom(M,device,rw,hl,data1,data2,SMBUSFLAG,uselock=True):
     #Function used to manage I2C bus communications for ALL devices.
     M=str(M) #Turbidostat to write to
     device=str(device) #Name of device to be written to
@@ -1347,7 +1347,8 @@ def I2CCom(M,device,rw,hl,data1,data2,SMBUSFLAG):
     
     #cID=str(M)+str(device)+'d'+str(data1)+'d'+str(data2)  # This is an ID string for the communication that we are trying to send - not used at present
     #Any time a thread gets to this point it will wait until the lock is free. Then, only one thread at a time will advance. 
-    lock.acquire()
+    if(uselock):
+        lock.acquire()
 
     
     #We now connect the multiplexer to the appropriate device to allow digital communications.
@@ -1441,8 +1442,8 @@ def I2CCom(M,device,rw,hl,data1,data2,SMBUSFLAG):
         print(str(datetime.now()) + 'Failed to disconnect multiplexer on device ' + str(M))
 
 
-    
-    lock.release() #Bus lock is released so next command can occur.
+    if(uselock):
+        lock.release() #Bus lock is released so next command can occur.
     
     return(out)
     
@@ -1668,36 +1669,38 @@ def setPWM(M,device,channels,fraction,ConsecutiveFails):
     #Sets up the PWM chip (either the one in the reactor or on the pump board)
     global sysItems
     global sysDevices
-    
+
+    lock.acquire()
+
     if sysDevices[M][device]['startup']==0: #The following boots up the respective PWM device to the correct frequency. Potentially there is a bug here; if the device loses power after this code is run for the first time it may revert to default PWM frequency.
-        I2CCom(M,device,0,8,0x00,0x11,0) #Turns off device.
-        I2CCom(M,device,0,8,0xfe,sysDevices[M][device]['frequency'],0) #Sets frequency of PWM oscillator. 
+        I2CCom(M,device,0,8,0x00,0x11,0,uselock=False) #Turns off device.
+        I2CCom(M,device,0,8,0xfe,sysDevices[M][device]['frequency'],0,uselock=False) #Sets frequency of PWM oscillator. 
         sysDevices[M][device]['startup']=1
-        I2CCom(M,device,0,8,0x00,0x01,0) #Turns device on 
+        I2CCom(M,device,0,8,0x00,0x01,0,uselock=False) #Turns device on 
     
         
     
     timeOn=int(fraction*4095.99)
-    I2CCom(M,device,0,8,channels['ONL'],0x00,0)
-    I2CCom(M,device,0,8,channels['ONH'],0x00,0)
+    I2CCom(M,device,0,8,channels['ONL'],0x00,0,uselock=False)
+    I2CCom(M,device,0,8,channels['ONH'],0x00,0,uselock=False)
     
     OffVals=bin(timeOn)[2:].zfill(12)
     HighVals='0000' + OffVals[0:4]
     LowVals=OffVals[4:12]
     
-    I2CCom(M,device,0,8,channels['OFFL'],int(LowVals,2),0)
-    I2CCom(M,device,0,8,channels['OFFH'],int(HighVals,2),0)
+    I2CCom(M,device,0,8,channels['OFFL'],int(LowVals,2),0,uselock=False)
+    I2CCom(M,device,0,8,channels['OFFH'],int(HighVals,2),0,uselock=False)
     
     if (device=='Pumps'):
-        I2CCom(M,device,0,8,channels['ONL'],0x00,0)
-        I2CCom(M,device,0,8,channels['ONH'],0x00,0)
-        I2CCom(M,device,0,8,channels['OFFL'],int(LowVals,2),0)
-        I2CCom(M,device,0,8,channels['OFFH'],int(HighVals,2),0)
+        I2CCom(M,device,0,8,channels['ONL'],0x00,0,uselock=False)
+        I2CCom(M,device,0,8,channels['ONH'],0x00,0,uselock=False)
+        I2CCom(M,device,0,8,channels['OFFL'],int(LowVals,2),0,uselock=False)
+        I2CCom(M,device,0,8,channels['OFFH'],int(HighVals,2),0,uselock=False)
     else:
-        CheckLow=I2CCom(M,device,1,8,channels['OFFL'],-1,0)
-        CheckHigh=I2CCom(M,device,1,8,channels['OFFH'],-1,0)
-        CheckLowON=I2CCom(M,device,1,8,channels['ONL'],-1,0)
-        CheckHighON=I2CCom(M,device,1,8,channels['ONH'],-1,0)
+        CheckLow=I2CCom(M,device,1,8,channels['OFFL'],-1,0,uselock=False)
+        CheckHigh=I2CCom(M,device,1,8,channels['OFFH'],-1,0,uselock=False)
+        CheckLowON=I2CCom(M,device,1,8,channels['ONL'],-1,0,uselock=False)
+        CheckHighON=I2CCom(M,device,1,8,channels['ONH'],-1,0,uselock=False)
     
         if(CheckLow!=(int(LowVals,2)) or CheckHigh!=(int(HighVals,2)) or CheckHighON!=int(0x00) or CheckLowON!=int(0x00)): #We check to make sure it has been set to appropriate values.
             ConsecutiveFails=ConsecutiveFails+1
@@ -1709,7 +1712,9 @@ def setPWM(M,device,channels,fraction,ConsecutiveFails):
             else:
                 time.sleep(0.1)
                 sysItems['FailCount']=sysItems['FailCount']+1
+                lock.release()
                 setPWM(M,device,channels,fraction,ConsecutiveFails)
+    lock.release()
     
 
 
