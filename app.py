@@ -1212,7 +1212,17 @@ def CustomProgram(M):
             SetOutputOn(M,'UV',1) #Activate UV
             time.sleep(Dose) #Wait for dose to be administered
             SetOutputOn(M,'UV',0) #Deactivate UV
-                
+    elif (program=="pumptest"):
+        #run the pumps on and off to get errors
+        print("pumptest!!")
+        SetOutputTarget(M,'Pump1',.3)
+        SetOutputTarget(M,'Pump2',.3)
+        SetOutputOn(M,'Pump1',1)
+        SetOutputOn(M,'Pump2',1)
+        time.sleep(0.1)
+        SetOutputOn(M,'Pump1',0)
+        SetOutputOn(M,'Pump2',0)
+        time.sleep(0.1)
                 
     
     return
@@ -1670,37 +1680,38 @@ def setPWM(M,device,channels,fraction,ConsecutiveFails):
     global sysItems
     global sysDevices
 
-    lock.acquire()
+    #lock.acquire()
+    uselock = True
 
     if sysDevices[M][device]['startup']==0: #The following boots up the respective PWM device to the correct frequency. Potentially there is a bug here; if the device loses power after this code is run for the first time it may revert to default PWM frequency.
-        I2CCom(M,device,0,8,0x00,0x11,0,uselock=False) #Turns off device.
-        I2CCom(M,device,0,8,0xfe,sysDevices[M][device]['frequency'],0,uselock=False) #Sets frequency of PWM oscillator. 
+        I2CCom(M,device,0,8,0x00,0x11,0,uselock=uselock) #Turns off device.
+        I2CCom(M,device,0,8,0xfe,sysDevices[M][device]['frequency'],0,uselock=uselock) #Sets frequency of PWM oscillator. 
         sysDevices[M][device]['startup']=1
-        I2CCom(M,device,0,8,0x00,0x01,0,uselock=False) #Turns device on 
+        I2CCom(M,device,0,8,0x00,0x01,0,uselock=uselock) #Turns device on 
     
         
     
     timeOn=int(fraction*4095.99)
-    I2CCom(M,device,0,8,channels['ONL'],0x00,0,uselock=False)
-    I2CCom(M,device,0,8,channels['ONH'],0x00,0,uselock=False)
+    I2CCom(M,device,0,8,channels['ONL'],0x00,0,uselock=uselock)
+    I2CCom(M,device,0,8,channels['ONH'],0x00,0,uselock=uselock)
     
     OffVals=bin(timeOn)[2:].zfill(12)
     HighVals='0000' + OffVals[0:4]
     LowVals=OffVals[4:12]
     
-    I2CCom(M,device,0,8,channels['OFFL'],int(LowVals,2),0,uselock=False)
-    I2CCom(M,device,0,8,channels['OFFH'],int(HighVals,2),0,uselock=False)
+    I2CCom(M,device,0,8,channels['OFFL'],int(LowVals,2),0,uselock=uselock)
+    I2CCom(M,device,0,8,channels['OFFH'],int(HighVals,2),0,uselock=uselock)
     
     if (device=='Pumps'):
-        I2CCom(M,device,0,8,channels['ONL'],0x00,0,uselock=False)
-        I2CCom(M,device,0,8,channels['ONH'],0x00,0,uselock=False)
-        I2CCom(M,device,0,8,channels['OFFL'],int(LowVals,2),0,uselock=False)
-        I2CCom(M,device,0,8,channels['OFFH'],int(HighVals,2),0,uselock=False)
+        I2CCom(M,device,0,8,channels['ONL'],0x00,0,uselock=uselock)
+        I2CCom(M,device,0,8,channels['ONH'],0x00,0,uselock=uselock)
+        I2CCom(M,device,0,8,channels['OFFL'],int(LowVals,2),0,uselock=uselock)
+        I2CCom(M,device,0,8,channels['OFFH'],int(HighVals,2),0,uselock=uselock)
     else:
-        CheckLow=I2CCom(M,device,1,8,channels['OFFL'],-1,0,uselock=False)
-        CheckHigh=I2CCom(M,device,1,8,channels['OFFH'],-1,0,uselock=False)
-        CheckLowON=I2CCom(M,device,1,8,channels['ONL'],-1,0,uselock=False)
-        CheckHighON=I2CCom(M,device,1,8,channels['ONH'],-1,0,uselock=False)
+        CheckLow=I2CCom(M,device,1,8,channels['OFFL'],-1,0,uselock=uselock)
+        CheckHigh=I2CCom(M,device,1,8,channels['OFFH'],-1,0,uselock=uselock)
+        CheckLowON=I2CCom(M,device,1,8,channels['ONL'],-1,0,uselock=uselock)
+        CheckHighON=I2CCom(M,device,1,8,channels['ONH'],-1,0,uselock=uselock)
     
         if(CheckLow!=(int(LowVals,2)) or CheckHigh!=(int(HighVals,2)) or CheckHighON!=int(0x00) or CheckLowON!=int(0x00)): #We check to make sure it has been set to appropriate values.
             ConsecutiveFails=ConsecutiveFails+1
@@ -1712,9 +1723,9 @@ def setPWM(M,device,channels,fraction,ConsecutiveFails):
             else:
                 time.sleep(0.1)
                 sysItems['FailCount']=sysItems['FailCount']+1
-                lock.release()
+                #lock.release()
                 setPWM(M,device,channels,fraction,ConsecutiveFails)
-    lock.release()
+    #lock.release()
     
 
 
