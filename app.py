@@ -732,12 +732,14 @@ def PumpModulation(M,item):
     
     sysDevices[M][item]['threadCount']=(sysDevices[M][item]['threadCount']+1)%100 #Index of the particular thread running.
     currentThread=sysDevices[M][item]['threadCount']
-    
+    if(sysDevices[M][item]['active']==1):
+        print(f"pump thread {currentThread} will sleep")
     while (sysDevices[M][item]['active']==1): #Idea is we will wait here if a previous thread on this pump is already running. Potentially all this 'active' business could be removed from this fuction.
         time.sleep(0.02)
-        
+    print(f"pump thread {currentThread} is not sleeping")
     if (abs(sysData[M][item]['target']*sysData[M][item]['ON'])!=1 and currentThread==sysDevices[M][item]['threadCount']): #In all cases we turn things off to begin
         sysDevices[M][item]['active']=1
+        print(f"pump thread {currentThread} is turning {M}'s pump {item} off")
         setPWM(M,'Pumps',sysItems[item]['In1'],0.0*float(sysData[M][item]['ON']),0)
         setPWM(M,'Pumps',sysItems[item]['In2'],0.0*float(sysData[M][item]['ON']),0)
         setPWM(M,'Pumps',sysItems[item]['In1'],0.0*float(sysData[M][item]['ON']),0)
@@ -759,11 +761,13 @@ def PumpModulation(M,item):
     
     if (sysData[M][item]['target']>0 and currentThread==sysDevices[M][item]['threadCount']): #Turning on pumps in forward direction
         sysDevices[M][item]['active']=1
+        print(f"pump thread {currentThread} is turning {M}'s pump {item} forward")
         setPWM(M,'Pumps',sysItems[item]['In1'],1.0*float(sysData[M][item]['ON']),0)
         setPWM(M,'Pumps',sysItems[item]['In2'],0.0*float(sysData[M][item]['ON']),0)
         sysDevices[M][item]['active']=0
     elif (sysData[M][item]['target']<0 and currentThread==sysDevices[M][item]['threadCount']): #Or backward direction.
         sysDevices[M][item]['active']=1
+        print(f"pump thread {currentThread} is turning {M}'s pump {item} reverse")
         setPWM(M,'Pumps',sysItems[item]['In1'],0.0*float(sysData[M][item]['ON']),0)
         setPWM(M,'Pumps',sysItems[item]['In2'],1.0*float(sysData[M][item]['ON']),0)
         sysDevices[M][item]['active']=0
@@ -772,6 +776,7 @@ def PumpModulation(M,item):
     
     if(abs(sysData[M][item]['target'])!=1 and currentThread==sysDevices[M][item]['threadCount']): #Turning off pumps at appropriate time.
         sysDevices[M][item]['active']=1
+        print(f"pump thread {currentThread} is turning {M}'s pump {item} off")
         setPWM(M,'Pumps',sysItems[item]['In1'],0.0*float(sysData[M][item]['ON']),0)
         setPWM(M,'Pumps',sysItems[item]['In2'],0.0*float(sysData[M][item]['ON']),0)
         setPWM(M,'Pumps',sysItems[item]['In1'],0.0*float(sysData[M][item]['ON']),0)
@@ -783,10 +788,12 @@ def PumpModulation(M,item):
     elapsedTimeSeconds=round(elapsedTime.total_seconds(),2)
     Offtime=cycletime-elapsedTimeSeconds
     if (Offtime>0.0):
+        print(f"pump thread {currentThread} is waiting to satisfy 'offtime'")
         time.sleep(Offtime)   
     
     
     if (sysData[M][item]['ON']==1 and sysDevices[M][item]['threadCount']==currentThread): #If pumps need to keep going, this starts a new pump thread.
+        print(f"pump thread {currentThread} made a new thread")
         sysDevices[M][item]['thread']=Thread(target = PumpModulation, args=(M,item))
         sysDevices[M][item]['thread'].setDaemon(True)
         sysDevices[M][item]['thread'].start();
